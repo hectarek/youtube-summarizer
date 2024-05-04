@@ -18,7 +18,7 @@ client = AsyncOpenAI(
     api_key=os.environ.get("OPENAI_API_KEY"),
 )
 
-CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
+CORS(app, supports_credentials=True, origins=["http://localhost:3000", "youtube-summarizer-client.vercel.app"])
 
 
 ### ROUTES
