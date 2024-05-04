@@ -16,7 +16,7 @@ function SummaryResult({ data }: SummaryResultsProps) {
             setIsLoading(true); 
 
 			try {
-				const res = await fetch("http://localhost:8080/api/summarize", {
+				const res = await fetch("https://youtube-summarizer-server-hectarek-hectareks-projects.vercel.app/api/summarize", {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
