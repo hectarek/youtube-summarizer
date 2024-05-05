@@ -1,4 +1,5 @@
 import os
+import time
 import markdown
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -19,37 +20,7 @@ client = OpenAI(
 
 CORS(app, supports_credentials=True, origins=["http://localhost:3000", "https://youtube-summarizer-client.vercel.app"])
 
-
 ### ROUTES
-
-# /api/home
-@app.route("/api/home", methods=['GET'])
-def return_home():
-    return jsonify({
-        "message": "Hello world!",
-        "people": ['Jack', 'Sarah', "Alex"]
-    })
-
-# POST route for /api/feedback
-@app.route("/api/feedback", methods=['POST'])
-def receive_feedback():
-    # Check if the request contains JSON data
-    if request.is_json:
-        # Get the JSON data
-        data = request.get_json()
-        
-        # Process or store the feedback here
-        # For now, we're just returning it back as a confirmation
-        return jsonify({
-            "status": "success",
-            "message": "Feedback received",
-            "data": data
-        }), 200
-    else:
-        return jsonify({
-            "status": "error",
-            "message": "Request must be JSON"
-        }), 400
 
 @app.route("/api/summarize", methods=['POST'])
 def summarize_video():
@@ -57,16 +28,12 @@ def summarize_video():
         data = request.get_json()
         url = data.get('url', {}).get('url')
 
-        print("GOT URL: ", url)
-
-
         if not url:
             return jsonify({"status": "error", "message": "URL not provided"}), 400
 
         # Extract video ID
         try:
             video_id = url.split('v=')[1].split('&')[0]
-            print("GOT VIDEO ID: ", video_id)
 
         except IndexError:
             return jsonify({"status": "error", "message": "Invalid URL format"}), 400
@@ -84,9 +51,11 @@ def summarize_video():
         # Process transcript into text
         output = ' '.join([x['text'] for x in transcript])
 
-        # Generate summary asynchronously
+
+        start_time = time.time()  # Start time before the request
+
         summary_response = client.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a virtual assistant."},
                 {"role": "assistant", "content": "Write a summary with key points and topics outlined."},
@@ -94,26 +63,32 @@ def summarize_video():
             ]
         )
 
+        summary_duration = time.time() - start_time  # Calculate duration
         summary = summary_response.choices[0].message.content
         formattedSummary =  markdown.markdown(summary)
 
-        # Generate tags asynchronously
+        start_time = time.time()  # Reset time before the next request
+
         tag_response = client.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a journalist."},
                 {"role": "assistant", "content": "output a list of tags for this blog post."},
                 {"role": "user", "content": output}
             ]
         )
+        
+        tag_duration = time.time() - start_time  # Calculate duration
         tags = tag_response.choices[0].message.content
 
         # Return result
         return jsonify({
             "status": "success",
             "summary": formattedSummary,
+            "summary_time": summary_duration,
             "tags": tags,
-            "transcript": output
+            "tags_time": tag_duration,
+            "transcript": output,
         }), 200
     else:
         return jsonify({
@@ -122,4 +97,4 @@ def summarize_video():
         }), 400
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8080)
+    app.run(port=8080)
