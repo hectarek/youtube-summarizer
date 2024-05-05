@@ -1,9 +1,8 @@
 import os
-import asyncio
 import markdown
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from openai import AsyncOpenAI
+from openai import OpenAI
 from youtube_transcript_api import YouTubeTranscriptApi
 from dotenv import load_dotenv
 
@@ -14,11 +13,11 @@ load_dotenv()
 app = Flask(__name__)
 
 # OpenAI instance
-client = AsyncOpenAI(
+client = OpenAI(
     api_key=os.environ.get("OPENAI_API_KEY"),
 )
 
-CORS(app, supports_credentials=True, origins=["http://localhost:3000", "youtube-summarizer-client.vercel.app"])
+CORS(app, supports_credentials=True, origins=["http://localhost:3000", "https://youtube-summarizer-client.vercel.app"])
 
 
 ### ROUTES
@@ -53,10 +52,13 @@ def receive_feedback():
         }), 400
 
 @app.route("/api/summarize", methods=['POST'])
-async def summarize_video():
+def summarize_video():
     if request.is_json:
         data = request.get_json()
         url = data.get('url', {}).get('url')
+
+        print("GOT URL: ", url)
+
 
         if not url:
             return jsonify({"status": "error", "message": "URL not provided"}), 400
@@ -64,12 +66,15 @@ async def summarize_video():
         # Extract video ID
         try:
             video_id = url.split('v=')[1].split('&')[0]
+            print("GOT VIDEO ID: ", video_id)
+
         except IndexError:
             return jsonify({"status": "error", "message": "Invalid URL format"}), 400
 
         # Retrieve transcript asynchronously if possible (this part is synchronous in your case)
         try:
             transcript = YouTubeTranscriptApi.get_transcript(video_id)  # This call is synchronous
+            
         except Exception as e:
             return jsonify({
                 "status": "error",
@@ -80,7 +85,7 @@ async def summarize_video():
         output = ' '.join([x['text'] for x in transcript])
 
         # Generate summary asynchronously
-        summary_response = await client.chat.completions.create(
+        summary_response = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
                 {"role": "system", "content": "You are a virtual assistant."},
@@ -88,11 +93,12 @@ async def summarize_video():
                 {"role": "user", "content": output}
             ]
         )
+
         summary = summary_response.choices[0].message.content
         formattedSummary =  markdown.markdown(summary)
 
         # Generate tags asynchronously
-        tag_response = await client.chat.completions.create(
+        tag_response = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
                 {"role": "system", "content": "You are a journalist."},
@@ -116,4 +122,4 @@ async def summarize_video():
         }), 400
 
 if __name__ == "__main__":
-    app.run(port=8080)
+    app.run(debug=True, port=8080)

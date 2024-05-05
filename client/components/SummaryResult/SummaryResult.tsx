@@ -12,29 +12,27 @@ function SummaryResult({ data }: SummaryResultsProps) {
 	useEffect(() => {
 		if (!data) return;
 
-		console.log("This should be the url", data);
-
 		const getAPI = async () => {
 			setIsLoading(true);
 			setError("");
 
 			try {
-				const res = await fetch("https://youtube-summarizer-server-hectarek-hectareks-projects.vercel.app/api/summarize", {
+				
+				const res = await fetch("/api/summarize", {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
 					},
-					credentials: "include",
 					body: JSON.stringify({ url: data.values }),
 				});
 
 				if (!res.ok) {
-					throw new Error("Network response was not ok");
+					const errorResponse = await res.json();
+					console.error(`HTTP error ${res.status}: ${errorResponse}`);
 				}
 
 				const responseData = await res.json();
-				console.log("Success:", responseData);
-				setApiResult(responseData.summary);
+				setApiResult(responseData.response.summary);
 			} catch (error) {
 				console.error("Error:", error);
 				setError("There was an error. Please try again!");
